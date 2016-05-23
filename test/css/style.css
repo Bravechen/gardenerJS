@@ -1,0 +1,22 @@
+*{
+    margin:0;
+    padding:0;
+    border:none;
+}
+
+ol,ul{
+    list-style:none;
+}
+
+body{
+    width:1024px;
+    margin:0 auto;
+
+}
+
+a{
+    text-decoration:none;
+    font-family:"Microsoft YaHei";
+    color:#000000;
+}
+

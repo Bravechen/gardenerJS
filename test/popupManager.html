@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <style>
+        *{
+            margin:0;
+            padding:0;
+            border:none;
+        }
+        body{
+            width:100%;
+            height:10000px;
+            background:#00cccc;
+        }
+        .dialogBox{
+            width:500px;
+            height:300px;
+            border-radius:10px;
+            border:1px solid #333333;
+            background:#ffffff;
+            overflow:hidden;
+            position:relative;
+            top:0;
+            left:0;
+
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+        }
+        .dialogTitle{
+            width:100%;
+            height:30px;
+            line-height:30px;
+            background:#333333;
+            color:#ffffff;
+            font-size:16px;
+            font-family:'Miscrosoft YaHei';
+        }
+        .closeBtn{
+            position:absolute;
+            top:5px;
+            right:5px;
+            text-decoration:none;
+            color:#ffffff;
+        }
+        .dialogContent{
+            width:100%;
+            height:200px;
+            background:#eeeeee;
+        }
+        .dialogCtrl{
+            width:100%;
+            height:70px;
+            background:#d3d3d3;
+        }
+        .dialogCtrl a{
+            width:100px;
+            height:24px;
+            vertical-align: middle;
+            text-align:center;
+            display:inline-block;
+            border-radius:5px;
+            border:1px solid #333333;
+            text-decoration:none;
+            color:#000000;
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+            margin-top:23px;
+        }
+        .certainBtn{
+            -webkit-transform:translate(150px,0);
+        }
+        .cancelBtn{
+            -webkit-transform:translate(150px,0);
+        }
+    </style>
+</head>
+<body>
+    <div id="dialogBox" class="dialogBox">
+        <h4 data-gnname="titleBox" class="dialogTitle">&nbsp;&nbsp;标题</h4>
+        <a data-gnname="closeBtn" class="closeBtn" href="javascript:;">关闭</a>
+        <div data-gnname="contentBox" class="dialogContent">内容</div>
+        <div class="dialogCtrl">
+            <a data-gnname="certainBtn" class="certainBtn" href="javascript:;">Certain</a>
+            <a data-gnname="cancelBtn" class="cancelBtn" href="javascript:;">Cancel</a>
+        </div>
+    </div>
+    
+    <script src="./js/lib/jquery-1.7.2.min.js" ></script>
+    <script src="../src/core/gnBase.js"></script>
+    <script src="../src/core/GNObjectManager.js"></script>
+    <script src="../src/events/GNEventManager.js"></script>
+    <script src="../src/core/GNObject.js"></script>
+    <script src="../src/part/GNPart.js"></script>
+    <script src="../src/framework/GNPopupManager.js"></script>
+    <script src="../src/utils/GNLogManager.js"></script>
+    <script src="../src/events/StageEvent.js"></script>
+    <script src="../src/events/MouseEvent.js"></script>
+    <script src="../src/events/GNWatcher.js"></script>
+    <script src="../src/framework/GNStage.js"></script>
+    <script src="../src/framework/GNGlobalManager.js"></script>
+    <script src="./js/popupTest.js"></script>
+</body>
+</html>
