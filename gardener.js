@@ -28,13 +28,22 @@
  * @version beta v0.7.4 修复GNStage中获取视口尺寸的bug。
  * @version beta v0.7.5 GNPopupManager现在可以支持GNPart对象及其继承子类。
  * @version beta v0.7.6 修复gnBase中gnid等公共常量的错误。
+ * @version beta v0.7.7 在GNFrameManager中增加了isListenerPause()方法用来判断处理器是否已被暂停执行。
+ * @version beta v0.7.8 修复GNFrameManager中设置处理器id的bug
+ * @version beta v0.7.9 为GNPart和GNStage增加了pointA和pointB信息，用于AABB碰撞检测。用于延迟加载。
+ * @version beta v0.7.10 增加几何计算的工具方法
+ * @version beta v0.7.11 修复GNStage中获取视口位置的兼容性bug
+ * @version beta v0.7.12 修复getParam()中的非空bug
+ * @version beta v0.8.0 GNPopupManager中增加配置项，可开启背景关闭功能;GNTools中增加格式化器
+ * @version beta v0.8.1 GNPopupManager中分离出单独的遮罩层，增加对低版本浏览器的支持。
+ * @version beta 0.9.1 GNStage中判断浏览器特性的部分采用了更简单方式。
  * @dependence jQuery
  */
 //======================base=========================================
 window.gardener = (function(window,undefined){
     "use strict";
     /**版本号 */
-    var version = "beta 0.7.6";
+    var version = "beta 0.9.1";
     
     /**
      * 私有类，提供不公开的工具方法
@@ -416,6 +425,7 @@ gardener.GNFrameManager = (function(window,undefined){
         FM.removeFrameListener = removeFrameListener;
         FM.pauseFrameListener = pauseFrameListener;
         FM.continueFrameListener = continueFrameListener;
+        FM.isListenerPause = isListenerPause;
         
         initialized = true;
     }
@@ -439,7 +449,7 @@ gardener.GNFrameManager = (function(window,undefined){
         var id,frameFrom;
         if(!handlerInList(handler)){
             frameFrom = {};
-            frameFrom.id = (new Date().getTime())+Math.toFixed(Math.random()*1000,2);
+            frameFrom.id = (new Date().getTime())+Math.floor(Math.random()*1000)/100;
             frameFrom.handler = handler;
             frameFrom.scope = scope;
             frameFrom.data = data;
@@ -511,6 +521,15 @@ gardener.GNFrameManager = (function(window,undefined){
         if(inListById(handlerId) && !(frameFrom=PrivateClass.handlerList[handlerId]).isPlaying){
             frameFrom.isPlaying = true;
         }
+    }
+    
+    /**
+     * 侦听器是否已被暂停监听
+     * @param handlerId {String} [necessary] 处理器id。
+     */
+    function isListenerPause(handlerId){
+        var frameFrom = PrivateClass.handlerList[handlerId];
+        return frameFrom && !frameFrom.isPlaying;
     }
 
     //============================================================
@@ -726,6 +745,12 @@ gardener.KeyboardEvent = {
     KEY_UP:'keyup',
     KEY_PRESS:'keypress'
 };
+/**
+ * 文本事件
+ */
+gardener.TextEvent = {
+    INPUT:'input propertychange'
+};
 //==============================GNObject==============================
 /**
  * 根级类
@@ -752,7 +777,7 @@ gardener.GNObject = (function(window,gn,undefined){
     };
     /**
      * 访问父类原型上的方法
-     * @param functionName {String} [necessary]
+     * @param function Name {String} [necessary]
      * @return 如果父类原型方法有返回值，则返回
      */
     GNObject.prototype.execSuper = function(){
@@ -834,7 +859,6 @@ gardener.GNObject = (function(window,gn,undefined){
         this._gnId = null;
         this.initialized = null;
     };
-
     return GNObject;
 })(window,gardener);
 //==============================GNWatcher===============================
@@ -999,6 +1023,10 @@ gardener.GNStage = (function(window,$,gn,undefined){
         this.isIE8 = false;
         /**ie9+**/
         this.isAboveIE9 = false;
+        /**edge**/
+        this.isEdge = false;
+        /**ie all**/
+        this.isIE = false;
         /**或者其他现代浏览器**/
         this.isOtherModern = false;
 
@@ -1055,7 +1083,6 @@ gardener.GNStage = (function(window,$,gn,undefined){
             if(gn.LM){
                 gn.LM.addLog("In GNStage's addEventListener()","The event '"+type+"can not add.",gn.LogType.WARNING);
             }
-            return;
         }
     };
     /**
@@ -1075,6 +1102,43 @@ gardener.GNStage = (function(window,$,gn,undefined){
                 this.win$.off(StageEvent.RESIZE);
             }
         }
+    };
+    /**
+     * 返回当前视口的矩形信息
+     * @return Object {
+     *  x:Number,
+     *  y:Number,
+     *  pointA:Object {x,y},
+     *  pointB:Object {x,y}
+     * }
+     */
+    GNStage.prototype.getViewBounds = function(){
+        var rect = {};
+        rect.x = this.viewX;
+        rect.y = this.viewY;
+        rect.width = this.viewW;
+        rect.height = this.viewH;
+        rect.pointA = {
+            x:rect.x,
+            y:rect.y
+        };
+        rect.pointB = {
+            x:rect.x+rect.width,
+            y:rect.y+rect.height
+        };
+        return rect;
+    };
+    /**
+     * 判断一个GNPart对象是否出现在视口中
+     * @param gnPart {Object} GNPart 对象
+     */
+    GNStage.prototype.inView = function(gnPart){
+        var rect = gnPart.getBounds();
+        var stageRect = this.getViewBounds();
+        var geom = gn.GNTools.geom;
+        var a = geom.pointInRect(rect.pointA,stageRect);
+        var b = geom.pointInRect(rect.pointB,stageRect);
+        return !(!a && !b);
     };
 
     //==================private====================
@@ -1154,55 +1218,38 @@ gardener.GNStage = (function(window,$,gn,undefined){
      * 检查浏览器兼容性
      */
     function checkBrowser(){
-        var CHECK_STYLES = [
-            "<style>",
-                ".check-browser{",
-                    "position:absolute;",
-                    "top:-9999px;",
-                    "left:-9999px;",
-                    "width: 100px;",
-                    "height: 100px;",
-                    "visibility:hidden;" ,
-                    "background-color: rgb(0,255,255);",
-                    "*background-color:rgb(255,0,0);" ,
-                    "background-color:#ffff00\\0;",
-                "}",
-            "</style>"].join('');
-        var div = document.createElement('div');
-        div.innerHTML = CHECK_STYLES;
-        div.setAttribute('class','check-browser');
-        stage.bodyElement.appendChild(div);
-
-        var div$ = $('.check-browser');
-        var cssResult = div$.css('background-color');
-        var _style = div.style;
-        var styleResult = 'transform' in _style || 'msTransform' in _style || 'mozTransform' in _style || 'webkitTransform' in _style;
         var log;
-        switch (cssResult){
-            case undefined:
-                stage.isBelowIE7 = true;
-                log = "maybe ie7-";
-                break;
-            case "transparent":
-                if(!styleResult){
-                    stage.isIE8 = true;
+        var isIE = /*@cc_on!@*/false;
+        if(isIE){
+            stage.isIE = true;
+            var canvas = document.createElement("canvas");
+            if(!canvas.getContext){ //below ie 9
+                if(Object.defineProperty){
                     log = 'maybe ie8';
+                    stage.isIE8 = true;
+                }else{
+                    log = "maybe ie7-";
+                    stage.isBelowIE7 = true;
                 }
-                break;
-            case "rgb(0, 255, 255)":
-                if(styleResult){
-                    stage.isOtherModern = true;
-                    log  = 'is other browser';
-                }
-                break;
-            default:
-                if(styleResult) {
-                    stage.isAboveIE9 = true;
-                    log = 'maybe ie9+';
-                }
-                break;
+            }else{
+                log = 'maybe ie9+';
+                stage.isAboveIE9 = true;
+            }
+        }else{
+            stage.isOtherModern = true;
+            log  = 'is other browser';
+            //check edge
+            var active;
+            try{
+                active = new window.ActiveXObject("Msxml2.XMLHTTP");
+            }catch(error){
+                active = undefined;
+            }
+            if(typeof active === "object"){
+                stage.isEdge = true;
+                log  = 'is edge browser';
+            }
         }
-        stage.bodyElement.removeChild(div);
         if(gn.LM){
             gn.LM.addLog('In GNStage\'s checkBrowser','The browser check result: '+log);
         }
@@ -1224,8 +1271,8 @@ gardener.GNStage = (function(window,$,gn,undefined){
      * @param e
      */
     function onWinScroll(e){
-        stage.viewX = document.body.scrollLeft;
-        stage.viewY = document.body.scrollTop;
+        stage.viewX = stage.doc$.scrollLeft();
+        stage.viewY = stage.doc$.scrollTop();
         doDispatchEvent(StageEvent.SCROLL,stage.gnId,false,e);
     }
 
@@ -1278,9 +1325,7 @@ gardener.GNStage = (function(window,$,gn,undefined){
     }
 
     //======================================
-
     var stage;
-
     return {
         /**
          * 获取GNStage对象的单例
@@ -1508,6 +1553,8 @@ gardener.GNPart = (function(window,$,gn,undefined){
      *  height:Number,
      *  x:Number,//===>left
      *  y:Number,//===>top
+     *  pointA:Object {x,y},
+     *  pointB:Object {x,y}
      * }
      */
     GNPart.prototype.getBounds = function(){
@@ -1517,6 +1564,14 @@ gardener.GNPart = (function(window,$,gn,undefined){
         var position = this.element$.offset();
         rect.x = position.left;
         rect.y = position.top;
+        rect.pointA = {
+            x:rect.x,
+            y:rect.y
+        };
+        rect.pointB = {
+            x:rect.x+rect.width,
+            y:rect.y+rect.height
+        };
         return rect;
     };
 
@@ -1553,26 +1608,68 @@ gardener.GNPopupManager = (function(window,gn,undefined){
     var initialized = false;
     var popupList = null;
     var boxList = null;
+    var popupRoot,popupRoot$;
     var maskBox,maskBox$;
     var stage;
     var lowEffect = false;
+    var popupOpt = {
+        originOpt:null,
+        bgClose:false
+    };
     /**
      * 初始化
-     * @param cssOption
+     * @param option {Object} [optional]
+     * option{
+     *  bgClose:Boolean 是否开启背景关闭功能，默认false.如果为true，点击背景遮罩可以关闭弹窗，关闭按钮函数会被调用(相当于调用了shutUpAll())
+     * }
      */
-    function initialize(cssOption){
-
+    function initialize(){
         stage = gn.GM.stage;
         popupList = {length:0};
         boxList = [];
-
         lowEffect = stage.isBelowIE7 || stage.isIE8;    ///*ie8- fix*/
+        createChildren();
+        childrenCreated();
+        initialized = true;
+        return true;
+    }
+    
+    function createChildren(){
+        popupRoot = document.createElement('div');
+        popupRoot$ = $(popupRoot);
+        popupRoot$.html(getPopupCss({}));
+        popupRoot$.addClass('gn-popup-root');
+
         maskBox = document.createElement('div');
         maskBox$ = $(maskBox);
         maskBox$.addClass('gn-popup-mask');
-        maskBox$.html(getPopupCss(cssOption));
-        initialized = true;
-        return true;
+        popupRoot.appendChild(maskBox);
+        //maskBox$.html(getPopupCss({}));
+    }
+    
+    function childrenCreated(){        
+    }
+    /**
+     * 设置配置信息
+     * @param option 配置对象
+     */
+    function setOption(option){
+        if(!option){
+            return;
+        }
+        popupOpt.originOpt = option;
+        popupOpt.bgClose = !!option.bgClose;
+        if(popupOpt.bgClose){
+            maskBox$.on('click',{scope:this},onBgCloseHandler);
+        }
+    }
+    /**
+     * 点击背景关闭
+     */
+    function onBgCloseHandler(e){
+        if(e.target===maskBox){
+            shutUpAll();
+        }
     }
 
     /**
@@ -1582,7 +1679,12 @@ gardener.GNPopupManager = (function(window,gn,undefined){
      */
     function launch(element,option){
         if(!initialized){
-            initialize(option && option.popupCss?option.popupCss:undefined);
+            initialize(option);
+            setOption(option);
+        }else{
+            if(option){
+                setOption(option);
+            }            
         }
         if(element.element){
             element = element.element;
@@ -1611,9 +1713,9 @@ gardener.GNPopupManager = (function(window,gn,undefined){
         element.setAttribute('data-popupid',popupId);
         popupList[popupId] = popupObj;
         popupList.length++;
-        maskBox.appendChild(popupBox);
+        popupRoot.appendChild(popupBox);
         if(maskBox.parentNode !== document.body){
-            document.body.appendChild(maskBox);
+            document.body.appendChild(popupRoot);
         }
         /*ie8- fix*/
         if(lowEffect){
@@ -1649,7 +1751,7 @@ gardener.GNPopupManager = (function(window,gn,undefined){
             }
             return;
         }
-        maskBox.removeChild(popupObj.popupBox);
+        popupRoot.removeChild(popupObj.popupBox);
         popupObj.popupBox$.removeClass('gn-popup-box');
         popupObj.popupBox.removeChild(popupObj.content);
         if(popupObj.content.getAttribute('data-popupid')){
@@ -1666,9 +1768,17 @@ gardener.GNPopupManager = (function(window,gn,undefined){
         delete popupList[popupObj.popupId];
         popupList.length--;
         if(popupList.length<=0){
-            document.body.removeChild(maskBox);
+            document.body.removeChild(popupRoot);
+            clearOption();
         }
     }
+    
+    function clearOption(){
+        popupOpt.originOpt = null;
+        popupOpt.bgClose = null;
+        maskBox$.off('click',onBgCloseHandler);
+    }
+    
     /**
      * 关闭全部弹窗
      */
@@ -1692,6 +1802,9 @@ gardener.GNPopupManager = (function(window,gn,undefined){
      * @returns {boolean}
      */
     function isLaunching(element){
+        if(element.element){
+            element = element.element;
+        }
         if(!element || element.nodeType!==1){
             if(gn.LM){
                 gn.LM.addLog('In GNPopupManager\'s isLaunching()','The param of element is error.',element,gn.LogType.WARNING);
@@ -1748,16 +1861,22 @@ gardener.GNPopupManager = (function(window,gn,undefined){
         var maskWidth = option && option.maskWidth?option.maskWidth:viewW!==0?(viewW+"px"):"100%";
         var maskHeight = option && option.maskHeight?option.maskHeight:viewH!==0?(viewH+"px"):"100%";
         return ["<style>",
-                    ".gn-popup-mask{",
+                    ".gn-popup-root{",
                         "width:100%;",
                         "height:100%;",
-                        "display:block;",
                         "overflow:hidden;",
                         "position:fixed;",
                         "left:0;",
                         "top:0;",
-                        "background:"+(option && option.maskBg?option.maskBg:'rgba(53,52,52,0.5)') + ";",
                         "z-index:"+(option && option.maskZIndex?option.maskZIndex:'99999')+ ";",
+                    "}",
+                    ".gn-popup-mask{",
+                        "width:100%;",
+                        "height:100%;",
+                        "display:block;",
+                        "background:"+(option && option.maskBg?option.maskBg:'rgba(53,52,52,0.5)') + ";",
+                        lowEffect&&option && option.maskBg?"background:'rgb(53,52,52)';":'',
+                        lowEffect&&option && option.maskBg?"filter:alpha(opacity=50);":'',  
                     "}",
                     ".gn-popup-box{",
                         "position:fixed;",
@@ -1804,19 +1923,58 @@ gardener.GNTools = (function(window,undefined){
         getParams:function(){
             var args={};
             var query=window.location.search.substring(1);//获取查询串
+            if(!query){
+                return null;
+            }
             var pairs=query.split("&");//在逗号处断开
-            for(var i= 0,item;(item=pairs[i])!==null;i++){
-                var pos=item.indexOf('=');//查找name=value
-                if(pos===-1) continue;//如果没有找到就跳过
-                var key=item.substring(0,pos);//提取key
-                var value=item.substring(pos+1);//提取value
-                args[key]=decodeURI(value);//存为属性
+            try{
+                for(var i= 0,len = pairs.length;i<len;i++){
+                    var item = pairs[i];
+                    var pos=item.indexOf('=');//查找name=value
+                    if(pos===-1) continue;//如果没有找到就跳过
+                    var key=item.substring(0,pos);//提取key
+                    var value=item.substring(pos+1);//提取value
+                    args[key]=decodeURI(value);//存为属性
+                }
+            }catch(error){
+                return error;
             }
             return args;
         }
     };
+    
+    var geom = {
+        /**
+         * 检测一个点是否在矩形当中
+         */
+        pointInRect:function(point,rect){
+            return point.x>=rect.x && point.y>= rect.y && point.x<=rect.x+rect.width && point.y<=rect.y+rect.height;
+        }
+    };
+    
+    var formatter = {
+        /**
+         * 按照毫秒数返回日期
+         * 毫秒数是从1970.1.1 0:0:0开始
+         */
+        dateFormatter:function(millseconds){
+            if (!millseconds){
+                return null;
+            }
+            var date=new Date(millseconds);            
+            var y = date.getFullYear();
+            var month = date.getMonth()+1;
+            var d = date.getDate();
+            var h = date.getHours();
+            var min = date.getMinutes();
+            var s = date.getSeconds();
+            return y+'-'+(month<10?('0'+month):month)+'-'+(d<10?('0'+d):d)+" "+(h<10?('0'+h):h)+":"+(min<10?('0'+min):min)+":"+(s<10?('0'+s):s);
+        }
+    };
 
     return {
-        url:url
+        url:url,
+        geom:geom,
+        formatter:formatter
     };
 })(window);
